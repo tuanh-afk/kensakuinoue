@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Happy Birthday Baby 🎂</title>
+<title>Happy Birthday Kensaku 🎂</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
 <style>
 :root{--gold:#d4a04a;--rose:#c8415a;--cream:#fdf6f0;--wine:#7a1b34;}
@@ -105,7 +105,12 @@ body{font-family:'Cormorant Garamond',serif;background:#030b18;color:var(--cream
 .c-sponge-layer{width:260px;height:52px;background:linear-gradient(180deg,#f5708c 0%,#e84070 60%,#d03060 100%);border-radius:0 0 18px 18px;position:relative;z-index:2;}
 .c-plate{width:295px;height:18px;background:linear-gradient(180deg,#f0d080 0%,#c8a030 100%);border-radius:50%;box-shadow:0 6px 20px rgba(0,0,0,.55),0 2px 0 rgba(255,255,255,.15);margin-top:-4px;z-index:1;position:relative;}
 
-@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+/* SOUND BTN */
+#sound-btn{position:fixed;top:18px;right:18px;z-index:999;background:rgba(10,30,70,.7);border:1px solid rgba(212,160,74,.5);color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:.82rem;letter-spacing:.15em;padding:9px 18px;border-radius:40px;cursor:pointer;backdrop-filter:blur(8px);transition:all .3s ease;}
+#sound-btn:hover{background:rgba(212,160,74,.2);border-color:var(--gold);}
+#sound-btn.on{color:#88ffaa;border-color:#88ffaa;background:rgba(0,80,40,.4);}
+
+
 @keyframes flipIn{from{transform:rotateX(90deg);opacity:0;}to{transform:rotateX(0);opacity:1;}}
 .cd-num.flip{animation:flipIn .32s ease both;}
 
@@ -120,6 +125,9 @@ body{font-family:'Cormorant Garamond',serif;background:#030b18;color:var(--cream
 <canvas id="star-canvas"></canvas>
 <canvas id="firework-canvas"></canvas>
 <canvas id="smoke-canvas"></canvas>
+
+<!-- SOUND ENABLE BTN -->
+<button id="sound-btn" onclick="enableSound()" title="Enable sound">🔇 Tap to enable sound</button>
 
 <!-- COUNTDOWN -->
 <section id="section-countdown">
@@ -198,35 +206,103 @@ function getACtx() {
   return _actx;
 }
 
-/* Countdown tick — plays on last 10 seconds */
+/* Countdown tick — classic clock ticking sound */
 function playTick(isLast) {
   const ctx = getACtx();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain);
-  gain.connect(ctx.destination);
+
   if (isLast) {
-    // Final second: bright rising ding
+    // Final second: bright ding like a clock striking
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(900, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.18);
-    gain.gain.setValueAtTime(0.22, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.55);
+    osc.frequency.setValueAtTime(1100, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.28, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.7);
     osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.6);
-  } else {
-    // Normal tick: short soft click
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(660, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08);
-    gain.gain.setValueAtTime(0.11, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.15);
+    osc.stop(ctx.currentTime + 0.75);
+    return;
   }
+
+  // Classic mechanical clock tick:
+  // Two sharp noise bursts (the "tick" and faint "tock" resonance)
+  function clickBurst(time, vol, freq) {
+    const bufLen = Math.floor(ctx.sampleRate * 0.025);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      // Sharp attack, fast decay envelope on noise
+      const env = Math.pow(1 - i / bufLen, 6);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    // Bandpass to give it the "woody" clock body
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = freq;
+    bp.Q.value = 3.5;
+
+    // High shelf to add the sharp attack click
+    const hs = ctx.createBiquadFilter();
+    hs.type = 'highshelf';
+    hs.frequency.value = 3000;
+    hs.gain.value = 8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(vol, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+
+    src.connect(bp); bp.connect(hs); hs.connect(gain); gain.connect(ctx.destination);
+    src.start(time);
+    src.stop(time + 0.05);
+  }
+
+  // Main tick click
+  clickBurst(ctx.currentTime, 0.55, 1200);
+  // Soft body resonance just after (gives the "tock" depth)
+  clickBurst(ctx.currentTime + 0.008, 0.2, 420);
 }
 
-/* Birthday fanfare — plays at countdown zero */
+/* Last 10 seconds — urgent beep (tít tít) */
+function playBeep(isVeryLast) {
+  const ctx = getACtx();
+
+  if (isVeryLast) {
+    // Final second: long high ding
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1100, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.28, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.7);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.75);
+    return;
+  }
+
+  // Two quick beeps: tít — tít
+  function singleBeep(startTime) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, startTime);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(0.22, startTime + 0.012);
+    gain.gain.setValueAtTime(0.22, startTime + 0.09);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.16);
+    osc.start(startTime); osc.stop(startTime + 0.18);
+  }
+
+  singleBeep(ctx.currentTime);         // tít
+  singleBeep(ctx.currentTime + 0.22);  // tít
+}
+
+
 function playFanfare() {
   const ctx = getACtx();
   // Rising arpeggio C5 → E5 → G5 → C6
@@ -308,9 +384,31 @@ function playBlowSound() {
   noise.start(ctx.currentTime); noise.stop(ctx.currentTime + 0.68);
 }
 
-/* Unlock audio on first touch/click */
-document.addEventListener('click',    () => getACtx(), { once: true });
-document.addEventListener('touchstart',() => getACtx(), { once: true });
+function enableSound() {
+  unlockAudio();
+  const btn = document.getElementById('sound-btn');
+  btn.textContent = '🔔 Sound on';
+  btn.classList.add('on');
+  btn.style.pointerEvents = 'none';
+  // Play a test tick so user confirms it works
+  setTimeout(() => playTick(false), 100);
+}
+
+
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  const ctx = getACtx();
+  const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.start(0);
+}
+document.addEventListener('click',     unlockAudio);
+document.addEventListener('touchstart', unlockAudio);
+document.addEventListener('scroll',     unlockAudio, { once: true });
 
 
 /* ══ TWINKLING NIGHT SKY ══ */
@@ -370,28 +468,27 @@ document.addEventListener('touchstart',() => getACtx(), { once: true });
   const el=id=>document.getElementById(id);
   function pad(n){return String(n).padStart(2,'0');}
   function flip(el,v){if(el.textContent!==v){el.classList.remove('flip');void el.offsetWidth;el.textContent=v;el.classList.add('flip');}}
-  let prevSecs=null;
   function tick(){
     const diff=birthdayUTC-Date.now();
     if(diff<=0){
+      clearInterval(ticker);
       document.getElementById('countdown-boxes').style.display='none';
       const t=document.getElementById('cd-title');t.textContent='🎂';t.style.fontSize='3rem';
       document.getElementById('bday-reveal').classList.add('show');
-      playFanfare();     // 🔊 fanfare at zero
       launchFireworks();
       return;
     }
     const days=Math.floor(diff/86400000),hours=Math.floor((diff%86400000)/3600000),mins=Math.floor((diff%3600000)/60000),secs=Math.floor((diff%60000)/1000);
     flip(el('cd-days'),pad(days));flip(el('cd-hours'),pad(hours));flip(el('cd-mins'),pad(mins));flip(el('cd-secs'),pad(secs));
 
-    // 🔊 Tick on last 10 seconds
-    if(prevSecs!==secs){
-      prevSecs=secs;
-      if(days===0&&hours===0&&mins===0&&secs<=10&&secs>0) playTick(secs===1);
-    }
-    setTimeout(tick,200);
+    // 🔊 Tick every second — special beep for last 10s
+    const isVeryLast=(days===0&&hours===0&&mins===0&&secs===1);
+    const isLast10=(days===0&&hours===0&&mins===0&&secs<=10);
+    if(isLast10) playBeep(isVeryLast);
+    else playTick(false);
   }
-  tick();
+  tick(); // run immediately on load
+  const ticker = setInterval(tick, 1000); // then exactly every 1s
 })();
 
 /* ══ FIREWORKS ══ */
